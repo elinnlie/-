@@ -9,9 +9,20 @@ const today = localDateKey();
 
 const exercises = [
   "深蹲", "杠铃卧推", "哑铃卧推", "硬拉", "罗马尼亚硬拉", "引体向上", "高位下拉",
-  "坐姿划船", "杠铃划船", "哑铃肩推", "侧平举", "二头弯举", "绳索下压", "臀桥", "箭步蹲", "平板支撑", "卷腹"
+  "坐姿划船", "杠铃划船", "哑铃肩推", "侧平举", "二头弯举", "绳索下压", "臀桥", "箭步蹲", "平板支撑", "卷腹", "波比跳"
 ];
 const bodyParts = ["胸", "背", "肩", "手臂", "腿", "臀", "核心", "全身", "有氧"];
+const defaultExerciseByPart = {
+  胸: "杠铃卧推",
+  背: "引体向上",
+  肩: "哑铃肩推",
+  手臂: "二头弯举",
+  腿: "深蹲",
+  臀: "臀桥",
+  核心: "平板支撑",
+  全身: "硬拉",
+  有氧: "波比跳"
+};
 const commonFoods = {
   "鸡胸肉": 165, "鸡蛋": 144, "米饭": 116, "燕麦": 379, "全麦面包": 247, "牛奶": 61,
   "希腊酸奶": 97, "牛肉": 250, "三文鱼": 208, "豆腐": 76, "西兰花": 34, "香蕉": 89,
@@ -36,6 +47,7 @@ let editingFoodId = null;
 let cloudReady = false;
 let syncTimer = null;
 let syncRevision = 0;
+let dismissedSuggestedParts = new Set();
 
 function loadData() {
   try {
@@ -162,7 +174,7 @@ function init() {
 
   bindEvents();
   hydrateProfile();
-  addExerciseRow("深蹲", 3, 10, 0);
+  addExerciseRow();
   addFoodRow();
   renderAll();
   initializeCloud();
@@ -173,6 +185,7 @@ function bindEvents() {
   $("#openQuickWeight").addEventListener("click", openWeightModal);
   $("#showWeightModal").addEventListener("click", openWeightModal);
   $("#addExercise").addEventListener("click", () => addExerciseRow());
+  $("#bodyPartChips").addEventListener("change", syncSuggestedExercises);
   $("#exerciseRows").addEventListener("input", updateVolumePreview);
   $("#trainingForm").addEventListener("submit", saveTraining);
   $("#cancelTrainingEdit").addEventListener("click", resetTrainingForm);
@@ -191,6 +204,7 @@ function bindEvents() {
   $("#clearData").addEventListener("click", clearData);
   $("#trainingHistory").addEventListener("click", handleRecordAction);
   $("#foodHistory").addEventListener("click", handleRecordAction);
+  document.addEventListener("pointerdown", event => closeExerciseActions(event.target.closest(".exercise-swipe")));
 }
 
 function navigate(page) {
@@ -199,18 +213,121 @@ function navigate(page) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-function addExerciseRow(name = "", sets = 3, reps = 10, weight = 0) {
+function setExerciseActionsOpen(wrapper, open) {
+  wrapper.classList.toggle("actions-open", open);
+  $$(".exercise-action", wrapper).forEach(button => { button.tabIndex = open ? 0 : -1; });
+}
+
+function closeExerciseActions(except = null) {
+  $$(".exercise-swipe.actions-open", $("#exerciseRows")).forEach(wrapper => {
+    if (wrapper !== except) setExerciseActionsOpen(wrapper, false);
+  });
+}
+
+function bindExerciseSwipe(wrapper) {
+  const surface = $(".exercise-row", wrapper);
+  let startX = 0;
+  let startY = 0;
+  let tracking = false;
+
+  surface.addEventListener("pointerdown", event => {
+    tracking = true;
+    startX = event.clientX;
+    startY = event.clientY;
+  });
+
+  surface.addEventListener("pointerup", event => {
+    if (!tracking) return;
+    tracking = false;
+    const deltaX = event.clientX - startX;
+    const deltaY = event.clientY - startY;
+    if (Math.abs(deltaX) < 34 || Math.abs(deltaX) < Math.abs(deltaY)) return;
+    if (deltaX < 0) {
+      closeExerciseActions(wrapper);
+      setExerciseActionsOpen(wrapper, true);
+    } else {
+      setExerciseActionsOpen(wrapper, false);
+    }
+  });
+
+  surface.addEventListener("pointercancel", () => { tracking = false; });
+}
+
+function removeExerciseRow(wrapper) {
+  const suggestedFor = wrapper.dataset.suggestedFor;
+  if (suggestedFor) dismissedSuggestedParts.add(suggestedFor);
+  const wrappers = $$(".exercise-swipe", $("#exerciseRows"));
+  if (wrappers.length === 1) {
+    $(".exercise-name", wrapper).value = "";
+    $(".exercise-sets", wrapper).value = 3;
+    $(".exercise-reps", wrapper).value = 10;
+    $(".exercise-weight", wrapper).value = 0;
+    delete wrapper.dataset.suggestedFor;
+    setExerciseActionsOpen(wrapper, false);
+  } else {
+    wrapper.remove();
+  }
+  updateVolumePreview();
+}
+
+function addExerciseRow(name = "", sets = 3, reps = 10, weight = 0, suggestedFor = "") {
   const fragment = $("#exerciseTemplate").content.cloneNode(true);
-  $(".exercise-name", fragment).value = name;
+  const wrapper = $(".exercise-swipe", fragment);
+  const nameInput = $(".exercise-name", fragment);
+  if (suggestedFor) wrapper.dataset.suggestedFor = suggestedFor;
+  nameInput.value = name;
   $(".exercise-sets", fragment).value = sets;
   $(".exercise-reps", fragment).value = reps;
   $(".exercise-weight", fragment).value = weight;
-  $(".remove-row", fragment).addEventListener("click", event => {
-    if ($$(".exercise-row", $("#exerciseRows")).length === 1) return toast("至少保留一个动作");
-    event.currentTarget.closest(".exercise-row").remove();
-    updateVolumePreview();
+  $$(".exercise-action", fragment).forEach(button => { button.tabIndex = -1; });
+  nameInput.addEventListener("input", () => {
+    if (wrapper.dataset.suggestedFor && nameInput.value.trim() !== defaultExerciseByPart[wrapper.dataset.suggestedFor]) {
+      delete wrapper.dataset.suggestedFor;
+    }
   });
+  $(".edit-row", fragment).addEventListener("click", () => {
+    setExerciseActionsOpen(wrapper, false);
+    nameInput.focus();
+    nameInput.select();
+    toast("可以直接修改动作和训练量");
+  });
+  $(".remove-row", fragment).addEventListener("click", () => removeExerciseRow(wrapper));
+  bindExerciseSwipe(wrapper);
   $("#exerciseRows").append(fragment);
+  updateVolumePreview();
+}
+
+function syncSuggestedExercises() {
+  if (editingTrainingId) return;
+  const selectedParts = $$("#bodyPartChips input:checked").map(input => input.value);
+  const selectedSet = new Set(selectedParts);
+
+  [...dismissedSuggestedParts].forEach(part => {
+    if (!selectedSet.has(part)) dismissedSuggestedParts.delete(part);
+  });
+
+  $$(".exercise-swipe", $("#exerciseRows")).forEach(wrapper => {
+    const suggestedFor = wrapper.dataset.suggestedFor;
+    if (suggestedFor && !selectedSet.has(suggestedFor)) wrapper.remove();
+  });
+
+  selectedParts.forEach(part => {
+    if (dismissedSuggestedParts.has(part)) return;
+    const defaultName = defaultExerciseByPart[part];
+    const alreadyPresent = $$(".exercise-name", $("#exerciseRows")).some(input => input.value.trim() === defaultName);
+    if (alreadyPresent) return;
+
+    const blankWrapper = $$(".exercise-swipe", $("#exerciseRows")).find(wrapper => !$(".exercise-name", wrapper).value.trim());
+    if (blankWrapper) {
+      $(".exercise-name", blankWrapper).value = defaultName;
+      blankWrapper.dataset.suggestedFor = part;
+    } else {
+      addExerciseRow(defaultName, 3, 10, 0, part);
+    }
+  });
+
+  if (!$(".exercise-swipe", $("#exerciseRows"))) addExerciseRow();
+  closeExerciseActions();
   updateVolumePreview();
 }
 
@@ -255,6 +372,7 @@ function saveTraining(event) {
 
 function resetTrainingForm() {
   editingTrainingId = null;
+  dismissedSuggestedParts = new Set();
   $("#trainingDate").value = today;
   $$("#bodyPartChips input").forEach(input => input.checked = false);
   $("#trainingNote").value = "";
@@ -268,6 +386,7 @@ function editTraining(id) {
   const item = data.trainings.find(entry => entry.id === id);
   if (!item) return toast("找不到这条训练记录");
   editingTrainingId = id;
+  dismissedSuggestedParts = new Set();
   $("#trainingDate").value = item.date;
   $$("#bodyPartChips input").forEach(input => input.checked = item.parts.includes(input.value));
   $("#trainingNote").value = item.note || "";

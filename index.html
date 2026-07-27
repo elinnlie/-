@@ -305,15 +305,21 @@
     </dialog>
 
     <template id="exerciseTemplate">
-      <div class="exercise-row">
-        <div class="exercise-name-wrap">
-          <input class="exercise-name" list="exerciseOptions" placeholder="动作名称" required />
-          <button type="button" class="remove-row" aria-label="删除动作">×</button>
+      <div class="exercise-swipe">
+        <div class="exercise-row-actions" aria-label="动作管理">
+          <button type="button" class="exercise-action edit-row">修改</button>
+          <button type="button" class="exercise-action remove-row">删除</button>
         </div>
-        <div class="exercise-metrics">
-          <label><span>组</span><input class="exercise-sets" type="number" min="1" max="20" value="3" required /></label>
-          <label><span>次</span><input class="exercise-reps" type="number" min="1" max="100" value="10" required /></label>
-          <label><span>kg</span><input class="exercise-weight" type="number" min="0" max="1000" step="0.5" value="0" required /></label>
+        <div class="exercise-row">
+          <div class="exercise-name-wrap">
+            <input class="exercise-name" list="exerciseOptions" placeholder="选择训练部位后自动推荐" required />
+            <span class="swipe-hint" aria-hidden="true">左滑管理</span>
+          </div>
+          <div class="exercise-metrics">
+            <label><span>组</span><input class="exercise-sets" type="number" min="1" max="20" value="3" required /></label>
+            <label><span>次</span><input class="exercise-reps" type="number" min="1" max="100" value="10" required /></label>
+            <label><span>kg</span><input class="exercise-weight" type="number" min="0" max="1000" step="0.5" value="0" required /></label>
+          </div>
         </div>
       </div>
     </template>
