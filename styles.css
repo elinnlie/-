@@ -202,42 +202,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 }
 .section-heading h2 { font-size: 20px; font-weight: 600; }
 .section-heading.split { align-items: center; }
-.home-section-heading { margin-top: 34px; }
-.quick-grid {
-  padding: 0 16px;
-  border-top: 0;
-  border-radius: 14px;
-  background: var(--surface);
-  box-shadow: 0 10px 28px rgba(55, 69, 55, .045);
-  overflow: hidden;
-}
-.quick-card {
-  width: 100%;
-  display: grid;
-  grid-template-columns: 82px 1fr auto;
-  align-items: center;
-  gap: 14px;
-  min-height: 82px;
-  padding: 12px 2px;
-  border: 0;
-  border-bottom: 0;
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-}
-.quick-card + .quick-card { border-top: 1px solid var(--line); }
-.quick-card:hover .quick-arrow { transform: translateX(3px); }
-.quick-index {
-  color: var(--muted);
-  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
-  font-size: 9px;
-  letter-spacing: .06em;
-}
-.quick-content { display: grid; gap: 5px; }
-.quick-content strong { font-family: Poppins, Arial, "PingFang SC", sans-serif; font-size: 16px; font-weight: 600; }
-.quick-content small { color: var(--muted); font-size: 11px; }
-.quick-arrow { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; background: var(--accent); font-size: 17px; transition: transform .18s ease; }
-
 .insight-card {
   margin-top: 28px;
   padding: 0;
@@ -340,6 +304,65 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .two-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
 .field-label-row { display: flex; align-items: center; justify-content: space-between; }
 .text-button { border: 0; background: transparent; padding: 5px 0; color: var(--ink); font-size: 11px; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+
+.training-plan-section { margin: 2px 0 34px; }
+.plan-heading { margin: 8px 0 13px; align-items: center; }
+.training-plan-list { display: grid; gap: 12px; }
+.plan-empty {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 17px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 10px 28px rgba(55, 69, 55, .04);
+}
+.plan-empty-dot { width: 18px; height: 18px; flex: 0 0 18px; border: 1.5px solid #aeb8aa; border-radius: 50%; background: #fff; }
+.plan-empty > span:last-child { display: grid; gap: 3px; }
+.plan-empty strong { font-size: 12px; }
+.plan-empty small { color: var(--muted); font-size: 10px; }
+.training-plan-editor { display: grid; gap: 18px; margin-top: 12px; padding: 17px; border: 0; border-radius: 18px; box-shadow: 0 10px 30px rgba(55, 69, 55, .05); }
+.training-plan-editor[hidden] { display: none; }
+.plan-exercise-editor-list { display: grid; gap: 8px; }
+.plan-exercise-input-row { display: flex; align-items: center; gap: 8px; }
+.plan-exercise-input-row::before { width: 10px; height: 10px; flex: 0 0 10px; border: 1.5px solid #aeb8aa; border-radius: 50%; content: ""; }
+.plan-exercise-name {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--strong-line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  outline: none;
+}
+.plan-exercise-name:focus { border-color: var(--accent-strong); box-shadow: 0 0 0 3px rgba(191, 213, 182, .28); }
+.remove-plan-exercise { width: 36px; height: 36px; flex: 0 0 36px; border: 0; border-radius: 12px; background: var(--soft); color: var(--muted); font-size: 17px; cursor: pointer; }
+.plan-form-actions { grid-template-columns: 1fr auto; }
+.plan-form-actions .secondary-button { min-width: 76px; }
+.training-plan-card { padding: 17px; border: 0; border-radius: 18px; background: var(--surface); box-shadow: 0 10px 30px rgba(55, 69, 55, .05); }
+.training-plan-head { display: flex; align-items: start; justify-content: space-between; gap: 14px; }
+.training-plan-head > div { min-width: 0; }
+.training-plan-head span { color: var(--muted); font-family: ui-monospace, Consolas, monospace; font-size: 9px; }
+.training-plan-head h3 { margin: 4px 0 0; overflow-wrap: anywhere; font-family: Poppins, Arial, "PingFang SC", sans-serif; font-size: 16px; font-weight: 600; }
+.training-plan-head > strong { flex: 0 0 auto; padding: 5px 9px; border-radius: 999px; background: #fff; color: #687264; font-family: ui-monospace, Consolas, monospace; font-size: 10px; font-weight: 650; }
+.plan-checklist { display: grid; gap: 3px; margin-top: 13px; }
+.plan-check-row { width: 100%; min-width: 0; display: flex; align-items: center; gap: 11px; padding: 8px 2px; border: 0; background: transparent; color: var(--ink); text-align: left; cursor: pointer; }
+.plan-check-dot { position: relative; width: 18px; height: 18px; flex: 0 0 18px; border: 1.5px solid #aeb8aa; border-radius: 50%; background: #fff; transition: background .18s, border-color .18s; }
+.plan-check-row.is-done .plan-check-dot { border-color: #a6b99e; background: var(--accent); }
+.plan-check-row.is-done .plan-check-dot::after { position: absolute; inset: 5px; border-radius: 50%; background: #7f9278; content: ""; }
+.plan-check-name { min-width: 0; overflow-wrap: anywhere; font-size: 12px; font-weight: 580; }
+.plan-check-row.is-done .plan-check-name { color: #8a9088; text-decoration: line-through; text-decoration-thickness: 1px; }
+.training-plan-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 13px; }
+.training-plan-actions button { border: 0; background: transparent; color: var(--muted); font-size: 10px; cursor: pointer; }
+.training-plan-actions .plan-start { padding: 8px 10px; border-radius: 10px; background: var(--accent); color: #596255; font-weight: 700; }
+.training-plan-actions > span { display: flex; gap: 7px; }
 .chip-row, .factor-grid { display: flex; flex-wrap: wrap; gap: 7px; }
 .choice-chip input, .factor-chip input {
   position: absolute;
@@ -517,8 +540,9 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .hero-card { margin-top: 22px; }
   .hero-heading { display: grid; gap: 6px; margin-bottom: 24px; }
   .hero-copy { text-align: left; }
-  .quick-card { grid-template-columns: 68px 1fr auto; }
   .two-columns { gap: 9px; }
+  .plan-meta-fields { grid-template-columns: 1fr; }
+  .training-plan-actions { align-items: flex-start; flex-direction: column; }
   .weight-summary { gap: 8px; }
   .weight-summary strong { font-size: 12px; }
   .result-grid { grid-template-columns: 1fr; gap: 10px; }

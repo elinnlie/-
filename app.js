@@ -36,12 +36,14 @@ const factors = [
 const defaultData = {
   settings: { appName: "FitFlow" },
   profile: null,
+  trainingPlans: [],
   trainings: [],
   foods: [],
   weights: []
 };
 
 let data = loadData();
+let editingTrainingPlanId = null;
 let editingTrainingId = null;
 let editingFoodId = null;
 let cloudReady = false;
@@ -52,7 +54,7 @@ let dismissedSuggestedParts = new Set();
 function loadData() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    return { ...structuredClone(defaultData), ...saved, settings: { ...defaultData.settings, ...(saved?.settings || {}) } };
+    return normalizeState(saved);
   } catch {
     return structuredClone(defaultData);
   }
@@ -68,6 +70,7 @@ function normalizeState(value) {
   return {
     settings: { ...defaultData.settings, ...(value?.settings || {}) },
     profile: value?.profile || null,
+    trainingPlans: Array.isArray(value?.trainingPlans) ? value.trainingPlans : [],
     trainings: Array.isArray(value?.trainings) ? value.trainings : [],
     foods: Array.isArray(value?.foods) ? value.foods : [],
     weights: Array.isArray(value?.weights) ? value.weights : []
@@ -77,6 +80,7 @@ function normalizeState(value) {
 function hasUserData(value) {
   return Boolean(
     value?.profile ||
+    value?.trainingPlans?.length ||
     value?.trainings?.length ||
     value?.foods?.length ||
     value?.weights?.length ||
@@ -166,6 +170,11 @@ function setTrainingDate(value) {
   $("#trainingDateDisplay").textContent = value ? value.replaceAll("-", "/") : "选择日期";
 }
 
+function setTrainingPlanDate(value) {
+  $("#trainingPlanDate").value = value || "";
+  $("#trainingPlanDateDisplay").textContent = value ? value.replaceAll("-", "/") : "选择日期";
+}
+
 function init() {
   $("#todayLabel").textContent = new Intl.DateTimeFormat("zh-CN", { month: "long", day: "numeric", weekday: "short" }).format(new Date());
   setTrainingDate(today);
@@ -189,6 +198,13 @@ function bindEvents() {
   $$('[data-go]').forEach(button => button.addEventListener("click", () => navigate(button.dataset.go)));
   $("#openQuickWeight").addEventListener("click", openWeightModal);
   $("#showWeightModal").addEventListener("click", openWeightModal);
+  $("#newTrainingPlan").addEventListener("click", () => openTrainingPlanEditor());
+  $("#trainingPlanDate").addEventListener("change", event => setTrainingPlanDate(event.target.value));
+  $("#addPlanExercise").addEventListener("click", () => addTrainingPlanExerciseRow());
+  $("#trainingPlanForm").addEventListener("submit", saveTrainingPlan);
+  $("#cancelTrainingPlanEdit").addEventListener("click", closeTrainingPlanEditor);
+  $("#trainingPlanExerciseRows").addEventListener("click", handlePlanExerciseEditorAction);
+  $("#trainingPlanList").addEventListener("click", handleTrainingPlanAction);
   $("#addExercise").addEventListener("click", () => addExerciseRow());
   $("#trainingDate").addEventListener("change", event => setTrainingDate(event.target.value));
   $("#bodyPartChips").addEventListener("change", syncSuggestedExercises);
@@ -217,6 +233,173 @@ function navigate(page) {
   $$(".page").forEach(p => p.classList.toggle("active", p.dataset.page === page));
   $$(".nav-item").forEach(item => item.classList.toggle("active", item.dataset.go === page));
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function addTrainingPlanExerciseRow(exercise = null) {
+  const fragment = $("#planExerciseTemplate").content.cloneNode(true);
+  const row = $(".plan-exercise-input-row", fragment);
+  row.dataset.exerciseId = exercise?.id || crypto.randomUUID();
+  row.dataset.done = exercise?.done ? "true" : "false";
+  $(".plan-exercise-name", row).value = exercise?.name || "";
+  $("#trainingPlanExerciseRows").append(fragment);
+}
+
+function handlePlanExerciseEditorAction(event) {
+  const button = event.target.closest(".remove-plan-exercise");
+  if (!button) return;
+  const rows = $$(".plan-exercise-input-row", $("#trainingPlanExerciseRows"));
+  if (rows.length === 1) {
+    $(".plan-exercise-name", rows[0]).value = "";
+    rows[0].dataset.done = "false";
+    return;
+  }
+  button.closest(".plan-exercise-input-row").remove();
+}
+
+function openTrainingPlanEditor(plan = null) {
+  editingTrainingPlanId = plan?.id || null;
+  setTrainingPlanDate(plan?.date || today);
+  $("#trainingPlanTitle").value = plan?.title || "";
+  $("#trainingPlanExerciseRows").innerHTML = "";
+  const planExercises = Array.isArray(plan?.exercises) ? plan.exercises : [];
+  if (planExercises.length) planExercises.forEach(addTrainingPlanExerciseRow);
+  else addTrainingPlanExerciseRow();
+  $("#saveTrainingPlanButton").textContent = plan ? "更新计划" : "保存计划";
+  $("#trainingPlanList").hidden = true;
+  $("#trainingPlanForm").hidden = false;
+  $("#trainingPlanTitle").focus();
+}
+
+function closeTrainingPlanEditor() {
+  editingTrainingPlanId = null;
+  $("#trainingPlanForm").reset();
+  setTrainingPlanDate("");
+  $("#trainingPlanExerciseRows").innerHTML = "";
+  $("#trainingPlanForm").hidden = true;
+  $("#trainingPlanList").hidden = false;
+  $("#saveTrainingPlanButton").textContent = "保存计划";
+}
+
+function collectTrainingPlanExercises() {
+  return $$(".plan-exercise-input-row", $("#trainingPlanExerciseRows")).map(row => ({
+    id: row.dataset.exerciseId || crypto.randomUUID(),
+    name: $(".plan-exercise-name", row).value.trim(),
+    done: row.dataset.done === "true"
+  })).filter(exercise => exercise.name);
+}
+
+function saveTrainingPlan(event) {
+  event.preventDefault();
+  const exercises = collectTrainingPlanExercises();
+  if (!exercises.length) return toast("请至少填写一个计划动作");
+  const existing = editingTrainingPlanId ? data.trainingPlans.find(plan => plan.id === editingTrainingPlanId) : null;
+  const plan = {
+    id: existing?.id || crypto.randomUUID(),
+    date: $("#trainingPlanDate").value,
+    title: $("#trainingPlanTitle").value.trim(),
+    exercises,
+    createdAt: existing?.createdAt || Date.now(),
+    updatedAt: Date.now()
+  };
+  if (existing) Object.assign(existing, plan);
+  else data.trainingPlans.push(plan);
+  const wasEditing = Boolean(editingTrainingPlanId);
+  closeTrainingPlanEditor();
+  saveData();
+  toast(wasEditing ? "训练计划已更新" : "训练计划已保存");
+}
+
+function renderTrainingPlans() {
+  const list = $("#trainingPlanList");
+  const plans = [...data.trainingPlans].sort((a, b) => {
+    const aToday = a.date === today ? 1 : 0;
+    const bToday = b.date === today ? 1 : 0;
+    return bToday - aToday || b.date.localeCompare(a.date) || b.createdAt - a.createdAt;
+  });
+  if (!plans.length) {
+    list.innerHTML = `
+      <button class="plan-empty" type="button" data-plan-new>
+        <span class="plan-empty-dot" aria-hidden="true"></span>
+        <span><strong>还没有训练计划</strong><small>把下次要做的动作先写下来</small></span>
+      </button>`;
+    return;
+  }
+  list.innerHTML = plans.slice(0, 12).map(plan => {
+    const exercises = Array.isArray(plan.exercises) ? plan.exercises : [];
+    const doneCount = exercises.filter(exercise => exercise.done).length;
+    const title = plan.title || `${plan.date === today ? "今日" : formatDate(plan.date)}训练`;
+    return `
+      <article class="training-plan-card card" data-plan-id="${plan.id}">
+        <div class="training-plan-head">
+          <div>
+            <span>${plan.date === today ? "今天" : formatDate(plan.date)}</span>
+            <h3>${escapeHtml(title)}</h3>
+          </div>
+          <strong>${doneCount}/${exercises.length}</strong>
+        </div>
+        <div class="plan-checklist">
+          ${exercises.map(exercise => `
+            <button class="plan-check-row${exercise.done ? " is-done" : ""}" type="button" data-plan-check="${exercise.id}" data-plan-id="${plan.id}" aria-label="${exercise.done ? "取消" : "完成"}${escapeHtml(exercise.name)}">
+              <span class="plan-check-dot" aria-hidden="true"></span>
+              <span class="plan-check-name">${escapeHtml(exercise.name)}</span>
+            </button>`).join("")}
+        </div>
+        <div class="training-plan-actions">
+          <button class="plan-start" type="button" data-plan-start="${plan.id}">用此计划记录训练</button>
+          <span>
+            <button type="button" data-plan-edit="${plan.id}">修改</button>
+            <button type="button" data-plan-delete="${plan.id}">删除</button>
+          </span>
+        </div>
+      </article>`;
+  }).join("");
+}
+
+function handleTrainingPlanAction(event) {
+  if (event.target.closest("[data-plan-new]")) return openTrainingPlanEditor();
+
+  const checkButton = event.target.closest("[data-plan-check]");
+  if (checkButton) {
+    const plan = data.trainingPlans.find(item => item.id === checkButton.dataset.planId);
+    const exercise = plan?.exercises?.find(item => item.id === checkButton.dataset.planCheck);
+    if (!exercise) return toast("找不到这个计划动作");
+    exercise.done = !exercise.done;
+    plan.updatedAt = Date.now();
+    saveData();
+    toast(exercise.done ? "已完成一个动作" : "已取消打卡");
+    return;
+  }
+
+  const editButton = event.target.closest("[data-plan-edit]");
+  if (editButton) {
+    const plan = data.trainingPlans.find(item => item.id === editButton.dataset.planEdit);
+    if (plan) openTrainingPlanEditor(plan);
+    return;
+  }
+
+  const deleteButton = event.target.closest("[data-plan-delete]");
+  if (deleteButton) {
+    if (!confirm("确定删除这个训练计划吗？")) return;
+    data.trainingPlans = data.trainingPlans.filter(plan => plan.id !== deleteButton.dataset.planDelete);
+    if (editingTrainingPlanId === deleteButton.dataset.planDelete) closeTrainingPlanEditor();
+    saveData();
+    toast("训练计划已删除");
+    return;
+  }
+
+  const startButton = event.target.closest("[data-plan-start]");
+  if (!startButton) return;
+  const plan = data.trainingPlans.find(item => item.id === startButton.dataset.planStart);
+  if (!plan) return toast("找不到这个训练计划");
+  resetTrainingForm();
+  setTrainingDate(plan.date || today);
+  $("#exerciseRows").innerHTML = "";
+  (plan.exercises || []).forEach(exercise => addExerciseRow(exercise.name, 3, 10, 0));
+  if (!plan.exercises?.length) addExerciseRow();
+  updateVolumePreview();
+  navigate("training");
+  $("#trainingForm").scrollIntoView({ behavior: "smooth", block: "start" });
+  toast("计划动作已带入训练记录");
 }
 
 function setExerciseActionsOpen(wrapper, open) {
@@ -753,7 +936,6 @@ function renderWeights() {
 function renderHome() {
   const target = calculateTargets(data.profile);
   const eaten = data.foods.filter(item => item.date === today).reduce((sum, item) => sum + getFoodCalories(item), 0);
-  const todayTraining = data.trainings.filter(item => item.date === today);
   $("#brandName").textContent = data.settings.appName || "FitFlow";
   document.title = data.settings.appName || "FitFlow";
   $("#homeTarget").textContent = target ? formatNumber(target.calories) : "--";
@@ -761,9 +943,6 @@ function renderHome() {
   $("#calorieRing").style.setProperty("--progress", target ? `${Math.min(100, eaten / target.calories * 100)}%` : "0%");
   const goalNames = { lose: "减脂", maintain: "维持", gain: "增肌" };
   $("#homeGoalCopy").textContent = target ? `${goalNames[data.profile.goal]}目标 · 维持热量约 ${formatNumber(target.tdee)} kcal` : "完善身体资料后生成个性化目标";
-  $("#homeFoodStatus").textContent = `今日已记录 ${formatNumber(eaten)} kcal`;
-  $("#homeTrainingStatus").textContent = todayTraining.length ? `已完成 ${todayTraining.length} 次记录` : "还没有训练记录";
-
   const weights = [...data.weights].sort((a, b) => b.date.localeCompare(a.date));
   if (weights.length >= 2) {
     const explanation = getFluctuationExplanation(weights[0].value, weights[0].factors || [], weights[1].value);
@@ -811,7 +990,7 @@ function importData(event) {
     try {
       const parsed = JSON.parse(reader.result);
       if (!parsed || !Array.isArray(parsed.trainings) || !Array.isArray(parsed.foods) || !Array.isArray(parsed.weights)) throw new Error();
-      data = { ...structuredClone(defaultData), ...parsed };
+      data = normalizeState(parsed);
       saveData(); hydrateProfile(); toast("备份已导入");
     } catch { toast("文件格式不正确"); }
   };
@@ -820,7 +999,7 @@ function importData(event) {
 }
 
 function clearData() {
-  if (!confirm("这会删除全部训练、饮食、体重和个人资料，且无法撤销。确定继续吗？")) return;
+  if (!confirm("这会删除全部训练计划、训练记录、饮食、体重和个人资料，且无法撤销。确定继续吗？")) return;
   data = structuredClone(defaultData);
   localStorage.removeItem(STORAGE_KEY);
   hydrateProfile();
@@ -831,6 +1010,7 @@ function clearData() {
 }
 
 function renderAll() {
+  renderTrainingPlans();
   renderTrainings();
   renderNutrition();
   renderProfileResult();

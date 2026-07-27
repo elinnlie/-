@@ -11,6 +11,7 @@
     return {
       settings: { appName: value?.settings?.appName || "FitFlow" },
       profile: value?.profile || null,
+      trainingPlans: Array.isArray(value?.trainingPlans) ? value.trainingPlans : [],
       trainings: Array.isArray(value?.trainings) ? value.trainings : [],
       foods: Array.isArray(value?.foods) ? value.foods : [],
       weights: Array.isArray(value?.weights) ? value.weights : []

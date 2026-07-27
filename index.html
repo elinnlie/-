@@ -42,25 +42,6 @@
             <div class="calorie-progress" id="calorieRing" style="--progress: 0%"><span></span></div>
           </div>
 
-          <div class="section-heading home-section-heading">
-            <div>
-              <p class="eyebrow">今日记录</p>
-              <h2>训练与饮食</h2>
-            </div>
-          </div>
-          <div class="quick-grid">
-            <button class="quick-card" data-go="training">
-              <span class="quick-index">TRAINING</span>
-              <span class="quick-content"><strong>记录训练</strong><small id="homeTrainingStatus">还没有训练记录</small></span>
-              <span class="quick-arrow">→</span>
-            </button>
-            <button class="quick-card" data-go="nutrition">
-              <span class="quick-index">NUTRITION</span>
-              <span class="quick-content"><strong>记录饮食</strong><small id="homeFoodStatus">今日已记录 0 kcal</small></span>
-              <span class="quick-arrow">→</span>
-            </button>
-          </div>
-
           <article class="insight-card">
             <div class="insight-top">
               <p class="eyebrow">记录建议</p>
@@ -93,6 +74,50 @@
             <h2>记录今天的努力</h2>
             <p class="muted">训练量 = 组数 × 次数 × 重量</p>
           </div>
+
+          <section class="training-plan-section" aria-labelledby="trainingPlanHeading">
+            <div class="section-heading plan-heading">
+              <div>
+                <p class="eyebrow">训练计划</p>
+                <h2 id="trainingPlanHeading">先安排，再完成</h2>
+              </div>
+              <button type="button" class="text-button" id="newTrainingPlan">＋ 新建计划</button>
+            </div>
+
+            <div id="trainingPlanList" class="training-plan-list"></div>
+
+            <form id="trainingPlanForm" class="training-plan-editor card" hidden>
+              <div class="two-columns plan-meta-fields">
+                <label class="field">
+                  <span>计划日期</span>
+                  <span class="date-control">
+                    <span class="date-control-value" id="trainingPlanDateDisplay">选择日期</span>
+                    <svg class="date-control-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none">
+                      <path d="M7 3v3M17 3v3M4.5 9h15M6 5h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                    </svg>
+                    <input type="date" id="trainingPlanDate" aria-label="计划日期" required />
+                  </span>
+                </label>
+                <label class="field">
+                  <span>计划名称（可选）</span>
+                  <input type="text" id="trainingPlanTitle" maxlength="30" placeholder="例如：腿部训练" />
+                </label>
+              </div>
+
+              <div class="field">
+                <div class="field-label-row">
+                  <span>计划动作</span>
+                  <button type="button" class="text-button" id="addPlanExercise">＋ 添加动作</button>
+                </div>
+                <div id="trainingPlanExerciseRows" class="plan-exercise-editor-list"></div>
+              </div>
+
+              <div class="form-actions plan-form-actions">
+                <button class="primary-button" id="saveTrainingPlanButton" type="submit">保存计划</button>
+                <button class="secondary-button" id="cancelTrainingPlanEdit" type="button">取消</button>
+              </div>
+            </form>
+          </section>
 
           <form id="trainingForm" class="card form-card">
             <label class="field">
@@ -330,6 +355,13 @@
       </div>
     </template>
     <datalist id="exerciseOptions"></datalist>
+
+    <template id="planExerciseTemplate">
+      <div class="plan-exercise-input-row">
+        <input class="plan-exercise-name" list="exerciseOptions" placeholder="输入计划动作" required />
+        <button type="button" class="remove-plan-exercise" aria-label="删除计划动作">×</button>
+      </div>
+    </template>
 
     <template id="foodRowTemplate">
       <div class="food-row">
