@@ -28,20 +28,20 @@
 3. 打开 SQL Editor，执行 `supabase/schema.sql`。
 4. 在 Project Settings → API 中复制 Project URL 和 anon public key。
 
-## Netlify 环境变量
+## Netlify 环境变量（可选）
 
-在 Netlify 的 Site configuration → Environment variables 中添加：
+当前仓库已内置 Supabase 的浏览器发布密钥，可以直接部署。若后续更换数据库项目，可在 Netlify 的 Site configuration → Environment variables 中添加以下变量覆盖内置配置：
 
 ```text
 SUPABASE_URL=https://你的项目.supabase.co
 SUPABASE_ANON_KEY=你的-anon-public-key
 ```
 
-重新部署后，页面顶部状态会从“本机保存”变为“已同步”。首次连接会自动把第一阶段的本机数据迁移到云数据库。
+部署后，页面顶部状态会从“连接中”变为“已同步”。首次连接会自动把第一阶段的本机数据迁移到云数据库。
 
 ## 本机使用
 
-直接打开 `index.html` 仍然可用，但由于本地文件无法调用 Netlify Function，此时只会使用本机缓存。云端功能需要通过 Netlify 部署网址访问。
+直接打开 `index.html` 仍然可用；网络可用时会连接云数据库，网络不可用时自动使用本机缓存。
 
 ## 重要说明
 

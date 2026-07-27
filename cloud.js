@@ -1,5 +1,9 @@
 (function () {
   const CONFIG_ENDPOINT = "/.netlify/functions/config";
+  const DEFAULT_CONFIG = {
+    supabaseUrl: "https://sexiqhmgdiasjvwbptpa.supabase.co",
+    supabaseAnonKey: "sb_publishable_6lKnpCwYrCC0NrHOzT5QWQ_JntmZ7L5"
+  };
   let client = null;
   let userId = null;
 
@@ -14,9 +18,14 @@
   }
 
   async function readConfig() {
-    const response = await fetch(CONFIG_ENDPOINT, { cache: "no-store" });
-    if (!response.ok) throw new Error("云端配置不可用");
-    return response.json();
+    try {
+      const response = await fetch(CONFIG_ENDPOINT, { cache: "no-store" });
+      if (!response.ok) return DEFAULT_CONFIG;
+      const configured = await response.json();
+      return configured.supabaseUrl && configured.supabaseAnonKey ? configured : DEFAULT_CONFIG;
+    } catch {
+      return DEFAULT_CONFIG;
+    }
   }
 
   async function ensureAnonymousSession() {
