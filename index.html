@@ -97,7 +97,13 @@
           <form id="trainingForm" class="card form-card">
             <label class="field">
               <span>训练日期</span>
-              <input type="date" id="trainingDate" required />
+              <span class="date-control">
+                <span class="date-control-value" id="trainingDateDisplay">选择日期</span>
+                <svg class="date-control-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none">
+                  <path d="M7 3v3M17 3v3M4.5 9h15M6 5h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                </svg>
+                <input type="date" id="trainingDate" aria-label="训练日期" required />
+              </span>
             </label>
 
             <fieldset class="field">

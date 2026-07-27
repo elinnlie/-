@@ -161,9 +161,14 @@ function toast(message) {
   toast.timer = setTimeout(() => node.classList.remove("show"), 2200);
 }
 
+function setTrainingDate(value) {
+  $("#trainingDate").value = value || "";
+  $("#trainingDateDisplay").textContent = value ? value.replaceAll("-", "/") : "选择日期";
+}
+
 function init() {
   $("#todayLabel").textContent = new Intl.DateTimeFormat("zh-CN", { month: "long", day: "numeric", weekday: "short" }).format(new Date());
-  $("#trainingDate").value = today;
+  setTrainingDate(today);
   $("#foodDate").value = today;
   $("#weightDate").value = today;
 
@@ -185,6 +190,7 @@ function bindEvents() {
   $("#openQuickWeight").addEventListener("click", openWeightModal);
   $("#showWeightModal").addEventListener("click", openWeightModal);
   $("#addExercise").addEventListener("click", () => addExerciseRow());
+  $("#trainingDate").addEventListener("change", event => setTrainingDate(event.target.value));
   $("#bodyPartChips").addEventListener("change", syncSuggestedExercises);
   $("#exerciseRows").addEventListener("input", updateVolumePreview);
   $("#trainingForm").addEventListener("submit", saveTraining);
@@ -373,7 +379,7 @@ function saveTraining(event) {
 function resetTrainingForm() {
   editingTrainingId = null;
   dismissedSuggestedParts = new Set();
-  $("#trainingDate").value = today;
+  setTrainingDate(today);
   $$("#bodyPartChips input").forEach(input => input.checked = false);
   $("#trainingNote").value = "";
   $("#exerciseRows").innerHTML = "";
@@ -387,7 +393,7 @@ function editTraining(id) {
   if (!item) return toast("找不到这条训练记录");
   editingTrainingId = id;
   dismissedSuggestedParts = new Set();
-  $("#trainingDate").value = item.date;
+  setTrainingDate(item.date);
   $$("#bodyPartChips input").forEach(input => input.checked = item.parts.includes(input.value));
   $("#trainingNote").value = item.note || "";
   $("#exerciseRows").innerHTML = "";
