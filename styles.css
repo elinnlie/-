@@ -80,6 +80,32 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   font-weight: 650;
   cursor: pointer;
 }
+
+.topbar-tools { display: flex; align-items: center; gap: 10px; }
+.sync-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.sync-status::before {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #c9cec6;
+  content: "";
+}
+.sync-status[data-state="synced"]::before { background: #93a28d; }
+.sync-status[data-state="syncing"]::before {
+  background: #b5beaF;
+  animation: sync-pulse 1.2s ease-in-out infinite;
+}
+@keyframes sync-pulse { 50% { opacity: .35; transform: scale(.82); } }
+@media (prefers-reduced-motion: reduce) {
+  .sync-status[data-state="syncing"]::before { animation: none; }
+}
 .topbar-action:hover { background: var(--accent); color: var(--ink); }
 .icon-button {
   width: 38px;

@@ -15,7 +15,10 @@
           <p class="eyebrow" id="todayLabel">今天</p>
           <h1 id="brandName">FitFlow</h1>
         </div>
-        <button class="topbar-action" id="openQuickWeight">记录体重</button>
+        <div class="topbar-tools">
+          <span class="sync-status" id="syncStatus" data-state="local" title="数据保存在当前设备">本机保存</span>
+          <button class="topbar-action" id="openQuickWeight">记录体重</button>
+        </div>
       </header>
 
       <main>
@@ -331,6 +334,8 @@
     </template>
 
     <div class="toast" id="toast" role="status"></div>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="cloud.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

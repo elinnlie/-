@@ -33,6 +33,9 @@ const defaultData = {
 let data = loadData();
 let editingTrainingId = null;
 let editingFoodId = null;
+let cloudReady = false;
+let syncTimer = null;
+let syncRevision = 0;
 
 function loadData() {
   try {
@@ -46,6 +49,86 @@ function loadData() {
 function saveData() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   renderAll();
+  queueCloudSave();
+}
+
+function normalizeState(value) {
+  return {
+    settings: { ...defaultData.settings, ...(value?.settings || {}) },
+    profile: value?.profile || null,
+    trainings: Array.isArray(value?.trainings) ? value.trainings : [],
+    foods: Array.isArray(value?.foods) ? value.foods : [],
+    weights: Array.isArray(value?.weights) ? value.weights : []
+  };
+}
+
+function hasUserData(value) {
+  return Boolean(
+    value?.profile ||
+    value?.trainings?.length ||
+    value?.foods?.length ||
+    value?.weights?.length ||
+    (value?.settings?.appName && value.settings.appName !== "FitFlow")
+  );
+}
+
+function setSyncStatus(label, state = "local", detail = "") {
+  const node = $("#syncStatus");
+  if (!node) return;
+  node.textContent = label;
+  node.dataset.state = state;
+  node.title = detail || label;
+}
+
+function queueCloudSave() {
+  if (!cloudReady || !window.fitflowCloud?.isConnected()) return;
+  const revision = ++syncRevision;
+  clearTimeout(syncTimer);
+  setSyncStatus("同步中", "syncing", "数据正在写入云数据库");
+  syncTimer = setTimeout(async () => {
+    try {
+      await window.fitflowCloud.save(data);
+      if (revision === syncRevision) setSyncStatus("已同步", "synced", "数据已保存到云数据库");
+    } catch (error) {
+      console.warn("FitFlow sync failed:", error);
+      if (revision === syncRevision) setSyncStatus("本机保存", "local", "云端暂时不可用，数据已保存在本机");
+    }
+  }, 450);
+}
+
+async function initializeCloud() {
+  if (!window.fitflowCloud) {
+    setSyncStatus("本机保存", "local", "当前版本未加载云端数据组件");
+    return;
+  }
+
+  setSyncStatus("连接中", "syncing", "正在连接云数据库");
+  const result = await window.fitflowCloud.initialize();
+  if (!result.enabled) {
+    setSyncStatus("本机保存", "local", result.reason || "云数据库尚未配置");
+    return;
+  }
+
+  const remoteState = normalizeState(result.state);
+  const remoteHasData = hasUserData(remoteState);
+  const localHasData = hasUserData(data);
+  cloudReady = true;
+
+  try {
+    if (remoteHasData) {
+      data = remoteState;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      hydrateProfile();
+      renderAll();
+    } else if (localHasData) {
+      setSyncStatus("迁移中", "syncing", "正在把第一阶段的本机数据迁移到云数据库");
+      await window.fitflowCloud.save(data);
+    }
+    setSyncStatus("已同步", "synced", "数据已保存到云数据库");
+  } catch (error) {
+    console.warn("FitFlow initial sync failed:", error);
+    setSyncStatus("本机保存", "local", "首次云端同步失败，本机数据没有丢失");
+  }
 }
 
 function $(selector, root = document) { return root.querySelector(selector); }
@@ -82,6 +165,7 @@ function init() {
   addExerciseRow("深蹲", 3, 10, 0);
   addFoodRow();
   renderAll();
+  initializeCloud();
 }
 
 function bindEvents() {
