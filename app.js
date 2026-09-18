@@ -1,4 +1,5 @@
 const STORAGE_KEY = "fitflow-data-v1";
+const SAMPLE_PLANS_KEY = "fitflow-sample-plans-v1";
 function localDateKey(date = new Date()) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -32,6 +33,7 @@ const factors = [
   ["salty", "吃得偏咸"], ["carbs", "碳水较多"], ["late", "较晚进食"], ["sore", "训练酸痛"],
   ["sleep", "睡眠不足"], ["period", "生理期附近"], ["bowel", "排便变化"], ["alcohol", "饮酒"]
 ];
+const cardioExercisePattern = /(跑|走|步行|骑行|单车|游泳|有氧|椭圆|划船机|跳绳|登山|爬楼|波比)/;
 
 const defaultData = {
   settings: { appName: "FitFlow" },
@@ -41,6 +43,39 @@ const defaultData = {
   foods: [],
   weights: []
 };
+
+function sampleTrainingPlans() {
+  const now = Date.now();
+  const makeExercises = items => items.map(([name, sets, reps, weight = 0]) => ({ id: crypto.randomUUID(), name, sets, reps, weight }));
+  return [
+    {
+      id: crypto.randomUUID(), sampleKey: "female-split-lower", title: "女生三分化 A · 臀腿力量", parts: ["腿", "臀"],
+      exercises: makeExercises([["深蹲", 4, 8], ["臀桥", 4, 10], ["罗马尼亚硬拉", 3, 10], ["保加利亚分腿蹲", 3, 10], ["髋外展", 3, 15]]),
+      createdAt: now, updatedAt: now
+    },
+    {
+      id: crypto.randomUUID(), sampleKey: "female-split-upper", title: "女生三分化 B · 上肢", parts: ["胸", "背", "肩", "手臂"],
+      exercises: makeExercises([["高位下拉", 4, 10], ["坐姿划船", 3, 10], ["哑铃卧推", 3, 10], ["哑铃肩推", 3, 10], ["侧平举", 3, 15]]),
+      createdAt: now + 1, updatedAt: now + 1
+    },
+    {
+      id: crypto.randomUUID(), sampleKey: "female-split-full", title: "女生三分化 C · 全身核心", parts: ["全身", "核心"],
+      exercises: makeExercises([["硬拉", 4, 6], ["箭步蹲", 3, 10], ["俯卧撑", 3, 10], ["单臂哑铃划船", 3, 10], ["卷腹", 3, 15]]),
+      createdAt: now + 2, updatedAt: now + 2
+    }
+  ];
+}
+
+function ensureSampleTrainingPlans() {
+  if (localStorage.getItem(SAMPLE_PLANS_KEY)) return false;
+  const samples = sampleTrainingPlans();
+  samples.forEach(sample => {
+    if (!data.trainingPlans.some(plan => plan.sampleKey === sample.sampleKey || plan.title === sample.title)) data.trainingPlans.push(sample);
+  });
+  localStorage.setItem(SAMPLE_PLANS_KEY, "1");
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  return true;
+}
 
 let data = loadData();
 let editingTrainingPlanId = null;
@@ -114,6 +149,7 @@ function queueCloudSave() {
 
 async function initializeCloud() {
   if (!window.fitflowCloud) {
+    if (ensureSampleTrainingPlans()) renderAll();
     setSyncStatus("本机保存", "local", "当前版本未加载云端数据组件");
     return;
   }
@@ -121,6 +157,7 @@ async function initializeCloud() {
   setSyncStatus("连接中", "syncing", "正在连接云数据库");
   const result = await window.fitflowCloud.initialize();
   if (!result.enabled) {
+    if (ensureSampleTrainingPlans()) renderAll();
     setSyncStatus("本机保存", "local", result.reason || "云数据库尚未配置");
     return;
   }
@@ -133,13 +170,15 @@ async function initializeCloud() {
   try {
     if (remoteHasData) {
       data = remoteState;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      hydrateProfile();
-      renderAll();
     } else if (localHasData) {
       setSyncStatus("迁移中", "syncing", "正在把第一阶段的本机数据迁移到云数据库");
       await window.fitflowCloud.save(data);
     }
+    const addedSamples = ensureSampleTrainingPlans();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    hydrateProfile();
+    renderAll();
+    if (addedSamples) await window.fitflowCloud.save(data);
     setSyncStatus("已同步", "synced", "数据已保存到云数据库");
   } catch (error) {
     console.warn("FitFlow initial sync failed:", error);
@@ -170,11 +209,6 @@ function setTrainingDate(value) {
   $("#trainingDateDisplay").textContent = value ? value.replaceAll("-", "/") : "选择日期";
 }
 
-function setTrainingPlanDate(value) {
-  $("#trainingPlanDate").value = value || "";
-  $("#trainingPlanDateDisplay").textContent = value ? value.replaceAll("-", "/") : "选择日期";
-}
-
 function init() {
   $("#todayLabel").textContent = new Intl.DateTimeFormat("zh-CN", { month: "long", day: "numeric", weekday: "short" }).format(new Date());
   setTrainingDate(today);
@@ -184,6 +218,7 @@ function init() {
   $("#exerciseOptions").innerHTML = exercises.map(x => `<option value="${x}"></option>`).join("");
   $("#foodOptions").innerHTML = Object.entries(commonFoods).map(([name, kcal]) => `<option value="${name}">${kcal} kcal/100g</option>`).join("");
   $("#bodyPartChips").innerHTML = bodyParts.map(x => `<label class="choice-chip"><input type="checkbox" value="${x}"><span>${x}</span></label>`).join("");
+  $("#trainingPlanPartChips").innerHTML = bodyParts.map(x => `<label class="choice-chip"><input type="checkbox" value="${x}"><span>${x}</span></label>`).join("");
   $("#factorGrid").innerHTML = factors.map(([value, label]) => `<label class="factor-chip"><input type="checkbox" value="${value}"><span>${label}</span></label>`).join("");
 
   bindEvents();
@@ -199,7 +234,6 @@ function bindEvents() {
   $("#openQuickWeight").addEventListener("click", openWeightModal);
   $("#showWeightModal").addEventListener("click", openWeightModal);
   $("#newTrainingPlan").addEventListener("click", () => openTrainingPlanEditor());
-  $("#trainingPlanDate").addEventListener("change", event => setTrainingPlanDate(event.target.value));
   $("#addPlanExercise").addEventListener("click", () => addTrainingPlanExerciseRow());
   $("#trainingPlanForm").addEventListener("submit", saveTrainingPlan);
   $("#cancelTrainingPlanEdit").addEventListener("click", closeTrainingPlanEditor);
@@ -226,7 +260,10 @@ function bindEvents() {
   $("#clearData").addEventListener("click", clearData);
   $("#trainingHistory").addEventListener("click", handleRecordAction);
   $("#foodHistory").addEventListener("click", handleRecordAction);
-  document.addEventListener("pointerdown", event => closeExerciseActions(event.target.closest(".exercise-swipe")));
+  document.addEventListener("pointerdown", event => {
+    closeExerciseActions(event.target.closest(".exercise-swipe"));
+    closeRecordActions(event.target.closest(".record-swipe"));
+  });
 }
 
 function navigate(page) {
@@ -239,8 +276,10 @@ function addTrainingPlanExerciseRow(exercise = null) {
   const fragment = $("#planExerciseTemplate").content.cloneNode(true);
   const row = $(".plan-exercise-input-row", fragment);
   row.dataset.exerciseId = exercise?.id || crypto.randomUUID();
-  row.dataset.done = exercise?.done ? "true" : "false";
   $(".plan-exercise-name", row).value = exercise?.name || "";
+  $(".plan-exercise-sets", row).value = Number(exercise?.sets || 3);
+  $(".plan-exercise-reps", row).value = Number(exercise?.reps || 10);
+  $(".plan-exercise-weight", row).value = Number(exercise?.weight || 0);
   $("#trainingPlanExerciseRows").append(fragment);
 }
 
@@ -250,7 +289,6 @@ function handlePlanExerciseEditorAction(event) {
   const rows = $$(".plan-exercise-input-row", $("#trainingPlanExerciseRows"));
   if (rows.length === 1) {
     $(".plan-exercise-name", rows[0]).value = "";
-    rows[0].dataset.done = "false";
     return;
   }
   button.closest(".plan-exercise-input-row").remove();
@@ -258,8 +296,8 @@ function handlePlanExerciseEditorAction(event) {
 
 function openTrainingPlanEditor(plan = null) {
   editingTrainingPlanId = plan?.id || null;
-  setTrainingPlanDate(plan?.date || today);
   $("#trainingPlanTitle").value = plan?.title || "";
+  $$("#trainingPlanPartChips input").forEach(input => { input.checked = (plan?.parts || []).includes(input.value); });
   $("#trainingPlanExerciseRows").innerHTML = "";
   const planExercises = Array.isArray(plan?.exercises) ? plan.exercises : [];
   if (planExercises.length) planExercises.forEach(addTrainingPlanExerciseRow);
@@ -273,7 +311,6 @@ function openTrainingPlanEditor(plan = null) {
 function closeTrainingPlanEditor() {
   editingTrainingPlanId = null;
   $("#trainingPlanForm").reset();
-  setTrainingPlanDate("");
   $("#trainingPlanExerciseRows").innerHTML = "";
   $("#trainingPlanForm").hidden = true;
   $("#trainingPlanList").hidden = false;
@@ -284,19 +321,27 @@ function collectTrainingPlanExercises() {
   return $$(".plan-exercise-input-row", $("#trainingPlanExerciseRows")).map(row => ({
     id: row.dataset.exerciseId || crypto.randomUUID(),
     name: $(".plan-exercise-name", row).value.trim(),
-    done: row.dataset.done === "true"
+    sets: Number($(".plan-exercise-sets", row).value),
+    reps: Number($(".plan-exercise-reps", row).value),
+    weight: Number($(".plan-exercise-weight", row).value)
   })).filter(exercise => exercise.name);
 }
 
 function saveTrainingPlan(event) {
   event.preventDefault();
+  const title = $("#trainingPlanTitle").value.trim();
+  const parts = $$("#trainingPlanPartChips input:checked").map(input => input.value);
+  if (!title) return toast("请填写计划名称");
+  if (!parts.length) return toast("请至少选择一个训练部位");
   const exercises = collectTrainingPlanExercises();
   if (!exercises.length) return toast("请至少填写一个计划动作");
+  if (exercises.some(exercise => exercise.sets <= 0 || exercise.reps <= 0 || exercise.weight < 0)) return toast("请检查计划动作的数据");
   const existing = editingTrainingPlanId ? data.trainingPlans.find(plan => plan.id === editingTrainingPlanId) : null;
   const plan = {
     id: existing?.id || crypto.randomUUID(),
-    date: $("#trainingPlanDate").value,
-    title: $("#trainingPlanTitle").value.trim(),
+    sampleKey: existing?.sampleKey,
+    title,
+    parts,
     exercises,
     createdAt: existing?.createdAt || Date.now(),
     updatedAt: Date.now()
@@ -311,11 +356,7 @@ function saveTrainingPlan(event) {
 
 function renderTrainingPlans() {
   const list = $("#trainingPlanList");
-  const plans = [...data.trainingPlans].sort((a, b) => {
-    const aToday = a.date === today ? 1 : 0;
-    const bToday = b.date === today ? 1 : 0;
-    return bToday - aToday || b.date.localeCompare(a.date) || b.createdAt - a.createdAt;
-  });
+  const plans = [...data.trainingPlans].sort((a, b) => Number(a.createdAt || 0) - Number(b.createdAt || 0));
   if (!plans.length) {
     list.innerHTML = `
       <button class="plan-empty" type="button" data-plan-new>
@@ -326,26 +367,26 @@ function renderTrainingPlans() {
   }
   list.innerHTML = plans.slice(0, 12).map(plan => {
     const exercises = Array.isArray(plan.exercises) ? plan.exercises : [];
-    const doneCount = exercises.filter(exercise => exercise.done).length;
-    const title = plan.title || `${plan.date === today ? "今日" : formatDate(plan.date)}训练`;
+    const title = plan.title || "训练计划";
     return `
       <article class="training-plan-card card" data-plan-id="${plan.id}">
         <div class="training-plan-head">
           <div>
-            <span>${plan.date === today ? "今天" : formatDate(plan.date)}</span>
+            <span>${escapeHtml((plan.parts || []).join(" · ") || "自定义")}</span>
             <h3>${escapeHtml(title)}</h3>
           </div>
-          <strong>${doneCount}/${exercises.length}</strong>
+          <strong>${exercises.length} 个动作</strong>
         </div>
         <div class="plan-checklist">
           ${exercises.map(exercise => `
-            <button class="plan-check-row${exercise.done ? " is-done" : ""}" type="button" data-plan-check="${exercise.id}" data-plan-id="${plan.id}" aria-label="${exercise.done ? "取消" : "完成"}${escapeHtml(exercise.name)}">
+            <div class="plan-check-row plan-template-row">
               <span class="plan-check-dot" aria-hidden="true"></span>
               <span class="plan-check-name">${escapeHtml(exercise.name)}</span>
-            </button>`).join("")}
+              <small>${Number(exercise.sets || 3)} × ${Number(exercise.reps || 10)}${Number(exercise.weight || 0) ? ` · ${Number(exercise.weight)}kg` : ""}</small>
+            </div>`).join("")}
         </div>
         <div class="training-plan-actions">
-          <button class="plan-start" type="button" data-plan-start="${plan.id}">用此计划记录训练</button>
+          <button class="plan-start" type="button" data-plan-start="${plan.id}">开始训练</button>
           <span>
             <button type="button" data-plan-edit="${plan.id}">修改</button>
             <button type="button" data-plan-delete="${plan.id}">删除</button>
@@ -357,18 +398,6 @@ function renderTrainingPlans() {
 
 function handleTrainingPlanAction(event) {
   if (event.target.closest("[data-plan-new]")) return openTrainingPlanEditor();
-
-  const checkButton = event.target.closest("[data-plan-check]");
-  if (checkButton) {
-    const plan = data.trainingPlans.find(item => item.id === checkButton.dataset.planId);
-    const exercise = plan?.exercises?.find(item => item.id === checkButton.dataset.planCheck);
-    if (!exercise) return toast("找不到这个计划动作");
-    exercise.done = !exercise.done;
-    plan.updatedAt = Date.now();
-    saveData();
-    toast(exercise.done ? "已完成一个动作" : "已取消打卡");
-    return;
-  }
 
   const editButton = event.target.closest("[data-plan-edit]");
   if (editButton) {
@@ -392,14 +421,15 @@ function handleTrainingPlanAction(event) {
   const plan = data.trainingPlans.find(item => item.id === startButton.dataset.planStart);
   if (!plan) return toast("找不到这个训练计划");
   resetTrainingForm();
-  setTrainingDate(plan.date || today);
+  setTrainingDate(today);
+  $$("#bodyPartChips input").forEach(input => { input.checked = (plan.parts || []).includes(input.value); });
   $("#exerciseRows").innerHTML = "";
-  (plan.exercises || []).forEach(exercise => addExerciseRow(exercise.name, 3, 10, 0));
+  (plan.exercises || []).forEach(exercise => addExerciseRow(exercise.name, Number(exercise.sets || 3), Number(exercise.reps || 10), Number(exercise.weight || 0)));
   if (!plan.exercises?.length) addExerciseRow();
   updateVolumePreview();
   navigate("training");
   $("#trainingForm").scrollIntoView({ behavior: "smooth", block: "start" });
-  toast("计划动作已带入训练记录");
+  toast("计划已带入今天的训练");
 }
 
 function setExerciseActionsOpen(wrapper, open) {
@@ -442,16 +472,56 @@ function bindExerciseSwipe(wrapper) {
   surface.addEventListener("pointercancel", () => { tracking = false; });
 }
 
+function setRecordActionsOpen(wrapper, open) {
+  wrapper.classList.toggle("actions-open", open);
+  $$(".record-swipe-action", wrapper).forEach(button => { button.tabIndex = open ? 0 : -1; });
+}
+
+function closeRecordActions(except = null) {
+  $$(".record-swipe.actions-open").forEach(wrapper => {
+    if (wrapper !== except) setRecordActionsOpen(wrapper, false);
+  });
+}
+
+function bindRecordSwipe(wrapper) {
+  const surface = $(".record-surface", wrapper);
+  let startX = 0;
+  let startY = 0;
+  let tracking = false;
+  $$(".record-swipe-action", wrapper).forEach(button => { button.tabIndex = -1; });
+  surface.addEventListener("pointerdown", event => {
+    tracking = true;
+    startX = event.clientX;
+    startY = event.clientY;
+  });
+  surface.addEventListener("pointerup", event => {
+    if (!tracking) return;
+    tracking = false;
+    const deltaX = event.clientX - startX;
+    const deltaY = event.clientY - startY;
+    if (Math.abs(deltaX) < 34 || Math.abs(deltaX) < Math.abs(deltaY)) return;
+    if (deltaX < 0) {
+      closeRecordActions(wrapper);
+      setRecordActionsOpen(wrapper, true);
+    } else {
+      setRecordActionsOpen(wrapper, false);
+    }
+  });
+  surface.addEventListener("pointercancel", () => { tracking = false; });
+}
+
+function bindRecordSwipes(root) {
+  $$(".record-swipe", root).forEach(bindRecordSwipe);
+}
+
 function removeExerciseRow(wrapper) {
   const suggestedFor = wrapper.dataset.suggestedFor;
   if (suggestedFor) dismissedSuggestedParts.add(suggestedFor);
   const wrappers = $$(".exercise-swipe", $("#exerciseRows"));
   if (wrappers.length === 1) {
     $(".exercise-name", wrapper).value = "";
-    $(".exercise-sets", wrapper).value = 3;
-    $(".exercise-reps", wrapper).value = 10;
-    $(".exercise-weight", wrapper).value = 0;
     delete wrapper.dataset.suggestedFor;
+    configureExerciseRow(wrapper, shouldUseCardioMode() ? "cardio" : "strength", true);
     setExerciseActionsOpen(wrapper, false);
   } else {
     wrapper.remove();
@@ -459,20 +529,51 @@ function removeExerciseRow(wrapper) {
   updateVolumePreview();
 }
 
-function addExerciseRow(name = "", sets = 3, reps = 10, weight = 0, suggestedFor = "") {
+function shouldUseCardioMode(name = "", suggestedFor = "") {
+  if (suggestedFor === "有氧" || cardioExercisePattern.test(name)) return true;
+  const selected = $$("#bodyPartChips input:checked").map(input => input.value);
+  return !name && selected.length === 1 && selected[0] === "有氧";
+}
+
+function configureExerciseRow(wrapper, mode, resetValues = false) {
+  const cardio = mode === "cardio";
+  wrapper.dataset.mode = cardio ? "cardio" : "strength";
+  wrapper.classList.toggle("is-cardio", cardio);
+  $(".metric-label-a", wrapper).textContent = cardio ? "分钟" : "组";
+  $(".metric-label-b", wrapper).textContent = cardio ? "公里" : "次";
+  $(".metric-label-c", wrapper).textContent = cardio ? "强度" : "kg";
+  const a = $(".exercise-sets", wrapper);
+  const b = $(".exercise-reps", wrapper);
+  const c = $(".exercise-weight", wrapper);
+  Object.assign(a, cardio ? { min: "1", max: "600", step: "1" } : { min: "1", max: "20", step: "1" });
+  Object.assign(b, cardio ? { min: "0", max: "500", step: "0.1" } : { min: "1", max: "100", step: "1" });
+  Object.assign(c, cardio ? { min: "1", max: "10", step: "1" } : { min: "0", max: "1000", step: "0.5" });
+  if (resetValues) {
+    a.value = cardio ? 20 : 3;
+    b.value = cardio ? 0 : 10;
+    c.value = cardio ? 5 : 0;
+  }
+}
+
+function addExerciseRow(name = "", sets = 3, reps = 10, weight = 0, suggestedFor = "", details = null) {
   const fragment = $("#exerciseTemplate").content.cloneNode(true);
   const wrapper = $(".exercise-swipe", fragment);
   const nameInput = $(".exercise-name", fragment);
+  const cardio = details ? details.type === "cardio" : shouldUseCardioMode(name, suggestedFor);
   if (suggestedFor) wrapper.dataset.suggestedFor = suggestedFor;
   nameInput.value = name;
-  $(".exercise-sets", fragment).value = sets;
-  $(".exercise-reps", fragment).value = reps;
-  $(".exercise-weight", fragment).value = weight;
+  $(".exercise-sets", fragment).value = cardio ? Number(details?.duration ?? 20) : sets;
+  $(".exercise-reps", fragment).value = cardio ? Number(details?.distance ?? 0) : reps;
+  $(".exercise-weight", fragment).value = cardio ? Number(details?.intensity ?? 5) : weight;
+  configureExerciseRow(wrapper, cardio ? "cardio" : "strength");
   $$(".exercise-action", fragment).forEach(button => { button.tabIndex = -1; });
   nameInput.addEventListener("input", () => {
     if (wrapper.dataset.suggestedFor && nameInput.value.trim() !== defaultExerciseByPart[wrapper.dataset.suggestedFor]) {
       delete wrapper.dataset.suggestedFor;
     }
+    const nextMode = shouldUseCardioMode(nameInput.value.trim(), wrapper.dataset.suggestedFor) ? "cardio" : "strength";
+    if (nextMode !== wrapper.dataset.mode) configureExerciseRow(wrapper, nextMode, true);
+    updateVolumePreview();
   });
   $(".edit-row", fragment).addEventListener("click", () => {
     setExerciseActionsOpen(wrapper, false);
@@ -510,6 +611,7 @@ function syncSuggestedExercises() {
     if (blankWrapper) {
       $(".exercise-name", blankWrapper).value = defaultName;
       blankWrapper.dataset.suggestedFor = part;
+      if (part === "有氧") configureExerciseRow(blankWrapper, "cardio", true);
     } else {
       addExerciseRow(defaultName, 3, 10, 0, part);
     }
@@ -521,25 +623,43 @@ function syncSuggestedExercises() {
 }
 
 function collectExercises() {
-  return $$(".exercise-row", $("#exerciseRows")).map(row => ({
-    name: $(".exercise-name", row).value.trim(),
-    sets: Number($(".exercise-sets", row).value),
-    reps: Number($(".exercise-reps", row).value),
-    weight: Number($(".exercise-weight", row).value)
-  })).filter(item => item.name);
+  return $$(".exercise-swipe", $("#exerciseRows")).map(wrapper => {
+    const row = $(".exercise-row", wrapper);
+    const name = $(".exercise-name", row).value.trim();
+    if (wrapper.dataset.mode === "cardio") return {
+      name,
+      type: "cardio",
+      duration: Number($(".exercise-sets", row).value),
+      distance: Number($(".exercise-reps", row).value),
+      intensity: Number($(".exercise-weight", row).value)
+    };
+    return {
+      name,
+      type: "strength",
+      sets: Number($(".exercise-sets", row).value),
+      reps: Number($(".exercise-reps", row).value),
+      weight: Number($(".exercise-weight", row).value)
+    };
+  }).filter(item => item.name);
 }
 
 function updateVolumePreview() {
-  const volume = collectExercises().reduce((sum, item) => sum + item.sets * item.reps * item.weight, 0);
-  $("#totalVolume").textContent = formatNumber(volume);
+  const entries = collectExercises();
+  const volume = entries.filter(item => item.type !== "cardio").reduce((sum, item) => sum + item.sets * item.reps * item.weight, 0);
+  const minutes = entries.filter(item => item.type === "cardio").reduce((sum, item) => sum + item.duration, 0);
+  $("#trainingSummary").innerHTML = [volume ? `${formatNumber(volume)} <small>kg</small>` : "", minutes ? `${formatNumber(minutes)} <small>分钟</small>` : ""].filter(Boolean).join(" · ") || '0 <small>kg</small>';
 }
 
 function saveTraining(event) {
   event.preventDefault();
   const parts = $$("#bodyPartChips input:checked").map(input => input.value);
   const entries = collectExercises();
+  if (!$("#trainingDate").value) return toast("请选择训练日期");
   if (!parts.length) return toast("请至少选择一个训练部位");
   if (!entries.length) return toast("请至少填写一个训练动作");
+  if (entries.some(item => item.type === "cardio" ? item.duration <= 0 || item.intensity < 1 || item.intensity > 10 : item.sets <= 0 || item.reps <= 0 || item.weight < 0)) {
+    return toast("请检查训练动作的数据");
+  }
   const existing = editingTrainingId ? data.trainings.find(item => item.id === editingTrainingId) : null;
   const training = {
     id: existing?.id || crypto.randomUUID(),
@@ -547,7 +667,7 @@ function saveTraining(event) {
     parts,
     exercises: entries,
     note: $("#trainingNote").value.trim(),
-    volume: entries.reduce((sum, item) => sum + item.sets * item.reps * item.weight, 0),
+    volume: entries.filter(item => item.type !== "cardio").reduce((sum, item) => sum + item.sets * item.reps * item.weight, 0),
     createdAt: existing?.createdAt || Date.now(),
     updatedAt: Date.now()
   };
@@ -580,7 +700,7 @@ function editTraining(id) {
   $$("#bodyPartChips input").forEach(input => input.checked = item.parts.includes(input.value));
   $("#trainingNote").value = item.note || "";
   $("#exerciseRows").innerHTML = "";
-  item.exercises.forEach(exercise => addExerciseRow(exercise.name, exercise.sets, exercise.reps, exercise.weight));
+  item.exercises.forEach(exercise => addExerciseRow(exercise.name, exercise.sets, exercise.reps, exercise.weight, "", exercise));
   $("#saveTrainingButton").textContent = "更新训练";
   $("#cancelTrainingEdit").hidden = false;
   navigate("training");
@@ -594,22 +714,30 @@ function renderTrainings() {
     list.innerHTML = '<div class="empty-state">第一次训练记录会出现在这里</div>';
     return;
   }
-  list.innerHTML = entries.slice(0, 12).map(item => `
-    <article class="history-item card">
+  list.innerHTML = entries.slice(0, 12).map(item => {
+    const cardioMinutes = item.exercises.filter(exercise => exercise.type === "cardio").reduce((sum, exercise) => sum + Number(exercise.duration || 0), 0);
+    const trainingMeta = [item.volume ? `${formatNumber(item.volume)} kg` : "", cardioMinutes ? `${formatNumber(cardioMinutes)} 分钟` : ""].filter(Boolean).join(" · ") || "已记录";
+    return `
+    <div class="record-swipe">
+      <div class="record-swipe-actions" aria-label="训练记录管理">
+        <button class="record-swipe-action edit-item" data-edit="training" data-id="${item.id}" type="button">修改</button>
+        <button class="record-swipe-action delete-item" data-delete="training" data-id="${item.id}" type="button">删除</button>
+      </div>
+    <article class="history-item card record-surface">
       <div class="history-date">${formatDate(item.date).replace("月", "月<br>")}</div>
       <div class="history-content">
         <strong>${escapeHtml(item.parts.join(" · "))}</strong>
-        <p>${item.exercises.map(x => `${escapeHtml(x.name)} ${x.sets}×${x.reps}${x.weight ? ` @${x.weight}kg` : ""}`).join("；")}</p>
+        <p>${item.exercises.map(x => x.type === "cardio"
+          ? `${escapeHtml(x.name)} ${formatNumber(x.duration)}分钟${x.distance ? ` · ${x.distance}km` : ""}${x.intensity ? ` · 强度 ${x.intensity}/10` : ""}`
+          : `${escapeHtml(x.name)} ${x.sets}×${x.reps}${x.weight ? ` @${x.weight}kg` : ""}`).join("；")}</p>
         ${item.note ? `<p>“${escapeHtml(item.note)}”</p>` : ""}
       </div>
       <div class="history-meta">
-        <strong>${formatNumber(item.volume)} kg</strong>
-        <div class="record-actions">
-          <button class="edit-item" data-edit="training" data-id="${item.id}" type="button">修改</button>
-          <button class="delete-item" data-delete="training" data-id="${item.id}" type="button">删除</button>
-        </div>
+        <strong>${trainingMeta}</strong>
       </div>
-    </article>`).join("");
+    </article></div>`;
+  }).join("");
+  bindRecordSwipes(list);
 }
 
 function normalizeFoodRecord(record) {
@@ -666,7 +794,7 @@ function updateFoodRow(row) {
   if (!row) return;
   const grams = Number($(".food-grams", row).value || 0);
   const per100 = Number($(".food-kcal", row).value || 0);
-  $(".food-row-calories strong", row).textContent = `${formatNumber(grams * per100 / 100)} kcal`;
+  $(".food-row-calories strong", row).innerHTML = `${formatNumber(grams * per100 / 100)}<small>kcal</small>`;
 }
 
 function collectFoodItems() {
@@ -690,7 +818,9 @@ function updateMealTotal() {
 function saveFood(event) {
   event.preventDefault();
   const items = collectFoodItems();
+  if (!$("#foodMeal").value) return toast("请选择餐次");
   if (!items.length) return toast("请至少填写一种食物");
+  if (items.some(item => item.grams <= 0 || item.per100 < 0)) return toast("请填写正确的份量和热量");
   const existing = editingFoodId ? data.foods.find(item => item.id === editingFoodId) : null;
   const record = {
     id: existing?.id || crypto.randomUUID(),
@@ -744,26 +874,28 @@ function renderNutrition() {
   $("#eatenCalories").textContent = formatNumber(eaten);
   $("#remainingCalories").textContent = target ? formatNumber(target - eaten) : "--";
   $("#foodProgress").style.width = target ? `${Math.min(100, eaten / target * 100)}%` : "0%";
-  $("#foodProgress").style.background = eaten > target ? "#cfd7ca" : "";
+  $("#foodProgress").style.background = eaten > target ? "#1d1f24" : "";
   const targets = calculateTargets(data.profile);
-  $("#proteinTarget").textContent = targets ? `${targets.protein} g` : "-- g";
-  $("#fatTarget").textContent = targets ? `${targets.fat} g` : "-- g";
-  $("#carbTarget").textContent = targets ? `${targets.carbs} g` : "-- g";
+  $("#proteinTarget").textContent = targets ? targets.protein : "--";
+  $("#fatTarget").textContent = targets ? targets.fat : "--";
+  $("#carbTarget").textContent = targets ? targets.carbs : "--";
   $("#foodHistory").innerHTML = meals.length ? meals.map(item => `
-    <article class="history-item card">
+    <div class="record-swipe">
+      <div class="record-swipe-actions" aria-label="餐次记录管理">
+        <button class="record-swipe-action edit-item" data-edit="food" data-id="${item.id}" type="button">修改</button>
+        <button class="record-swipe-action delete-item" data-delete="food" data-id="${item.id}" type="button">删除</button>
+      </div>
+    <article class="history-item card record-surface">
       <div class="history-date meal-label">${escapeHtml(item.meal)}</div>
       <div class="history-content">
         <strong>${escapeHtml(item.meal)} · ${item.items.length} 种食物</strong>
         <div class="meal-food-list">${item.items.map(food => `<span>${escapeHtml(food.name)} ${formatNumber(food.grams)}g</span>`).join("")}</div>
       </div>
       <div class="history-meta">
-        <strong>${formatNumber(item.calories)} kcal</strong>
-        <div class="record-actions">
-          <button class="edit-item" data-edit="food" data-id="${item.id}" type="button">修改</button>
-          <button class="delete-item" data-delete="food" data-id="${item.id}" type="button">删除</button>
-        </div>
+        <strong class="calorie-value">${formatNumber(item.calories)}<small>kcal</small></strong>
       </div>
-    </article>`).join("") : '<div class="empty-state">这一天还没有记录餐次</div>';
+    </article></div>`).join("") : '<div class="empty-state">这一天还没有记录餐次</div>';
+  bindRecordSwipes($("#foodHistory"));
 }
 
 function calculateTargets(profile) {
@@ -802,6 +934,7 @@ function saveProfile(event) {
     activity: Number($("#activity").value), goal: selectedGoal.value
   };
   const targets = calculateTargets(profile);
+  if (!targets) return toast("请完整填写身体资料");
   if (targets.adjustedToFloor) toast(`公式结果偏低，已采用 ${targets.safetyFloor} kcal 安全下限`);
   data.profile = profile;
   data.settings.appName = $("#appName").value.trim() || "FitFlow";
@@ -844,8 +977,8 @@ function renderProfileResult() {
     return;
   }
   $("#resultCalories").textContent = formatNumber(result.calories);
-  $("#resultBmr").textContent = `${formatNumber(result.bmr)} kcal`;
-  $("#resultTdee").textContent = `${formatNumber(result.tdee)} kcal`;
+  $("#resultBmr").textContent = formatNumber(result.bmr);
+  $("#resultTdee").textContent = formatNumber(result.tdee);
   $("#resultPace").textContent = result.pace;
   const floorNote = result.adjustedToFloor ? ` 原始结果过低，已采用 ${result.safetyFloor} kcal 的保守下限。` : "";
   $("#formulaNote").textContent = `采用 ${result.formula} 估算。${floorNote} 目标值用于起步；连续执行 2–3 周后，按 7 日平均体重趋势每次微调 100–150 kcal。`;
@@ -898,6 +1031,8 @@ function saveWeight(event) {
   event.preventDefault();
   const date = $("#weightDate").value;
   const value = Number($("#weightValue").value);
+  if (!date) return toast("请选择记录日期");
+  if (value < 30 || value > 300) return toast("请填写正确的体重");
   const selected = $$("#factorGrid input:checked").map(input => input.value);
   const existing = data.weights.find(item => item.date === date);
   if (existing) {
@@ -946,10 +1081,8 @@ function renderHome() {
   const weights = [...data.weights].sort((a, b) => b.date.localeCompare(a.date));
   if (weights.length >= 2) {
     const explanation = getFluctuationExplanation(weights[0].value, weights[0].factors || [], weights[1].value);
-    $("#dailyInsightTitle").textContent = "体重波动不等于脂肪变化";
     $("#dailyInsightText").textContent = explanation;
   } else if (target) {
-    $("#dailyInsightTitle").textContent = "你的起步目标已生成";
     $("#dailyInsightText").textContent = `先执行 ${formatNumber(target.calories)} kcal/天并连续记录体重。2–3 周后再按趋势调整，不要频繁修改。`;
   }
 }

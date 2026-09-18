@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#f2f0ea" />
     <meta name="description" content="手机优先的训练、热量与体重趋势记录工具" />
     <title>FitFlow</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=ios26-8" />
   </head>
   <body>
     <div class="app-shell">
@@ -33,27 +33,21 @@
                 <span>目标</span>
                 <div class="hero-number"><strong id="homeTarget">--</strong><small>kcal</small></div>
               </div>
-              <div class="hero-remaining">
-                <span>剩余</span>
-                <strong id="homeRemaining">--</strong>
-                <small>kcal</small>
+            <div class="hero-remaining">
+              <span>剩余</span>
+              <div class="hero-number hero-number-remaining"><strong id="homeRemaining">--</strong><small>kcal</small></div>
               </div>
             </div>
             <div class="calorie-progress" id="calorieRing" style="--progress: 0%"><span></span></div>
           </div>
 
-          <article class="insight-card">
-            <div class="insight-top">
-              <p class="eyebrow">记录建议</p>
-            </div>
-            <h3 id="dailyInsightTitle">先建立基线</h3>
+          <article class="insight-card compact-insight">
             <p id="dailyInsightText">连续记录 7 天体重、饮食和训练，比纠结某一天的数字更有价值。</p>
           </article>
 
           <div class="section-heading split">
             <div>
-              <p class="eyebrow">体重趋势</p>
-              <h2>看趋势，不看单点</h2>
+              <h2>体重趋势</h2>
             </div>
             <button class="text-button" id="showWeightModal">记录</button>
           </div>
@@ -70,39 +64,30 @@
 
         <section class="page" data-page="training">
           <div class="page-title">
-            <p class="eyebrow">训练日志</p>
-            <h2>记录今天的努力</h2>
+            <h2>训练记录</h2>
             <p class="muted">训练量 = 组数 × 次数 × 重量</p>
           </div>
 
           <section class="training-plan-section" aria-labelledby="trainingPlanHeading">
             <div class="section-heading plan-heading">
               <div>
-                <p class="eyebrow">训练计划</p>
-                <h2 id="trainingPlanHeading">先安排，再完成</h2>
+                <h2 id="trainingPlanHeading">训练计划</h2>
               </div>
               <button type="button" class="text-button" id="newTrainingPlan">＋ 新建计划</button>
             </div>
 
             <div id="trainingPlanList" class="training-plan-list"></div>
 
-            <form id="trainingPlanForm" class="training-plan-editor card" hidden>
-              <div class="two-columns plan-meta-fields">
-                <label class="field">
-                  <span>计划日期</span>
-                  <span class="date-control">
-                    <span class="date-control-value" id="trainingPlanDateDisplay">选择日期</span>
-                    <svg class="date-control-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none">
-                      <path d="M7 3v3M17 3v3M4.5 9h15M6 5h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
-                    </svg>
-                    <input type="date" id="trainingPlanDate" aria-label="计划日期" required />
-                  </span>
-                </label>
-                <label class="field">
-                  <span>计划名称（可选）</span>
-                  <input type="text" id="trainingPlanTitle" maxlength="30" placeholder="例如：腿部训练" />
-                </label>
-              </div>
+            <form id="trainingPlanForm" class="training-plan-editor card" hidden novalidate>
+              <label class="field">
+                <span>计划名称</span>
+                <input type="text" id="trainingPlanTitle" maxlength="30" placeholder="例如：臀腿力量" />
+              </label>
+
+              <fieldset class="field plan-parts-field">
+                <legend>训练部位（可多选）</legend>
+                <div class="chip-row" id="trainingPlanPartChips"></div>
+              </fieldset>
 
               <div class="field">
                 <div class="field-label-row">
@@ -119,7 +104,7 @@
             </form>
           </section>
 
-          <form id="trainingForm" class="card form-card">
+          <form id="trainingForm" class="card form-card" novalidate>
             <label class="field">
               <span>训练日期</span>
               <span class="date-control">
@@ -150,8 +135,8 @@
             </label>
 
             <div class="volume-preview">
-              <span>本次总训练量</span>
-              <strong><span id="totalVolume">0</span> kg</strong>
+              <span>本次训练概览</span>
+              <strong id="trainingSummary">0 <small>kg</small></strong>
             </div>
             <div class="form-actions">
               <button class="primary-button" id="saveTrainingButton" type="submit">保存训练</button>
@@ -160,32 +145,31 @@
           </form>
 
           <div class="section-heading">
-            <div><p class="eyebrow">历史记录</p><h2>最近训练</h2></div>
+            <div><h2>最近训练</h2></div>
           </div>
           <div id="trainingHistory" class="history-list"></div>
         </section>
 
         <section class="page" data-page="nutrition">
           <div class="page-title">
-            <p class="eyebrow">饮食记录</p>
-            <h2>吃够，也别吃过</h2>
+            <h2>饮食记录</h2>
             <p class="muted">食物热量均为估算值，包装营养标签更准确</p>
           </div>
 
           <div class="macro-card card">
             <div class="macro-top">
-              <div><span>已摄入</span><strong><span id="eatenCalories">0</span> kcal</strong></div>
-              <div><span>还可摄入</span><strong><span id="remainingCalories">--</span> kcal</strong></div>
+              <div><span>已摄入</span><strong><span id="eatenCalories">0</span><small>kcal</small></strong></div>
+              <div><span>还可摄入</span><strong><span id="remainingCalories">--</span><small>kcal</small></strong></div>
             </div>
             <div class="progress-track"><div id="foodProgress"></div></div>
             <div class="macro-grid">
-              <div><span>蛋白质目标</span><strong id="proteinTarget">-- g</strong></div>
-              <div><span>脂肪目标</span><strong id="fatTarget">-- g</strong></div>
-              <div><span>碳水目标</span><strong id="carbTarget">-- g</strong></div>
+              <div><span>蛋白质目标</span><strong><span id="proteinTarget">--</span><small>g</small></strong></div>
+              <div><span>脂肪目标</span><strong><span id="fatTarget">--</span><small>g</small></strong></div>
+              <div><span>碳水目标</span><strong><span id="carbTarget">--</span><small>g</small></strong></div>
             </div>
           </div>
 
-          <form id="foodForm" class="card form-card compact-form">
+          <form id="foodForm" class="card form-card compact-form" novalidate>
             <label class="field">
               <span>餐次</span>
               <select id="foodMeal" required>
@@ -205,7 +189,7 @@
             </div>
             <div class="meal-total-preview">
               <span>本餐预计热量</span>
-              <strong><span id="mealTotalCalories">0</span> kcal</strong>
+              <strong><span id="mealTotalCalories">0</span><small>kcal</small></strong>
             </div>
             <div class="form-actions">
               <button class="primary-button" id="saveFoodButton" type="submit">保存本餐</button>
@@ -215,7 +199,7 @@
           <datalist id="foodOptions"></datalist>
 
           <div class="section-heading split">
-            <div><p class="eyebrow">今日明细</p><h2>已记录餐次</h2></div>
+            <div><h2>餐次记录</h2></div>
             <input type="date" id="foodDate" class="inline-date" />
           </div>
           <div id="foodHistory" class="history-list"></div>
@@ -223,12 +207,11 @@
 
         <section class="page" data-page="profile">
           <div class="page-title">
-            <p class="eyebrow">身体与目标</p>
-            <h2>建立你的热量基线</h2>
+            <h2>身体与热量目标</h2>
             <p class="muted">先用公式估算，再根据 2–3 周体重趋势微调</p>
           </div>
 
-          <form id="profileForm" class="card form-card">
+          <form id="profileForm" class="card form-card" novalidate>
             <label class="field">
               <span>平台名称</span>
               <input id="appName" maxlength="20" placeholder="FitFlow" />
@@ -288,18 +271,18 @@
           <div class="result-card card" id="calorieResult">
             <div class="result-main">
               <span>每日建议热量</span>
-              <strong><span id="resultCalories">--</span> kcal</strong>
+              <strong><span id="resultCalories">--</span><small>kcal</small></strong>
             </div>
             <div class="result-grid">
-              <div><span>基础代谢 BMR</span><strong id="resultBmr">--</strong></div>
-              <div><span>维持热量 TDEE</span><strong id="resultTdee">--</strong></div>
+              <div><span>基础代谢 BMR</span><strong><span id="resultBmr">--</span><small>kcal</small></strong></div>
+              <div><span>维持热量 TDEE</span><strong><span id="resultTdee">--</span><small>kcal</small></strong></div>
               <div><span>建议周变化</span><strong id="resultPace">--</strong></div>
             </div>
             <p id="formulaNote" class="fine-print">请先填写身体资料。</p>
           </div>
 
           <div class="section-heading">
-            <div><p class="eyebrow">数据管理</p><h2>你的数据只在本机</h2></div>
+            <div><h2>数据备份</h2></div>
           </div>
           <div class="card data-actions">
             <button class="secondary-button" id="exportData" type="button">导出备份</button>
@@ -313,14 +296,24 @@
 
       <nav class="bottom-nav" aria-label="主导航">
         <button class="nav-item active" data-go="home"><span>⌂</span><small>首页</small></button>
-        <button class="nav-item" data-go="training"><span>◇</span><small>训练</small></button>
-        <button class="nav-item" data-go="nutrition"><span>◌</span><small>饮食</small></button>
+        <button class="nav-item" data-go="training">
+          <svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none">
+            <path d="M8 9v6M5 8v8M3 10v4M16 9v6M19 8v8M21 10v4M8 12h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+          </svg>
+          <small>训练</small>
+        </button>
+        <button class="nav-item" data-go="nutrition">
+          <svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none">
+            <path d="M6 3v7M9 3v7M6 7h3M7.5 10v11M16.5 3v18M16.5 3c2 2.2 2.2 6.3 0 8.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <small>饮食</small>
+        </button>
         <button class="nav-item" data-go="profile"><span>◎</span><small>我的</small></button>
       </nav>
     </div>
 
     <dialog id="weightModal" class="modal">
-      <form method="dialog" id="weightForm" class="modal-card">
+      <form method="dialog" id="weightForm" class="modal-card" novalidate>
         <div class="modal-head"><div><p class="eyebrow">体重记录</p><h2>今天身体怎么样？</h2></div><button value="cancel" class="icon-button small" aria-label="关闭">×</button></div>
         <div class="two-columns">
           <label class="field"><span>日期</span><input id="weightDate" type="date" required /></label>
@@ -347,9 +340,9 @@
             <span class="swipe-hint" aria-hidden="true">左滑管理</span>
           </div>
           <div class="exercise-metrics">
-            <label><span>组</span><input class="exercise-sets" type="number" min="1" max="20" value="3" required /></label>
-            <label><span>次</span><input class="exercise-reps" type="number" min="1" max="100" value="10" required /></label>
-            <label><span>kg</span><input class="exercise-weight" type="number" min="0" max="1000" step="0.5" value="0" required /></label>
+            <label><span class="metric-label metric-label-a">组</span><input class="exercise-sets" type="number" min="1" max="20" value="3" /></label>
+            <label><span class="metric-label metric-label-b">次</span><input class="exercise-reps" type="number" min="1" max="100" value="10" /></label>
+            <label><span class="metric-label metric-label-c">kg</span><input class="exercise-weight" type="number" min="0" max="1000" step="0.5" value="0" /></label>
           </div>
         </div>
       </div>
@@ -358,7 +351,12 @@
 
     <template id="planExerciseTemplate">
       <div class="plan-exercise-input-row">
-        <input class="plan-exercise-name" list="exerciseOptions" placeholder="输入计划动作" required />
+        <input class="plan-exercise-name" list="exerciseOptions" placeholder="训练动作" />
+        <div class="plan-exercise-targets">
+          <label><span>组</span><input class="plan-exercise-sets" type="number" min="1" max="20" value="3" /></label>
+          <label><span>次</span><input class="plan-exercise-reps" type="number" min="1" max="100" value="10" /></label>
+          <label><span>kg</span><input class="plan-exercise-weight" type="number" min="0" max="1000" step="0.5" value="0" /></label>
+        </div>
         <button type="button" class="remove-plan-exercise" aria-label="删除计划动作">×</button>
       </div>
     </template>
@@ -372,14 +370,14 @@
         <div class="food-row-grid">
           <label><span>克</span><input class="food-grams" type="number" min="1" step="1" placeholder="份量" required /></label>
           <label><span>kcal/100g</span><input class="food-kcal" type="number" min="0" step="1" placeholder="热量" required /></label>
-          <div class="food-row-calories"><span>小计</span><strong>0 kcal</strong></div>
+          <div class="food-row-calories"><span>小计</span><strong>0<small>kcal</small></strong></div>
         </div>
       </div>
     </template>
 
     <div class="toast" id="toast" role="status"></div>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="cloud.js"></script>
-    <script src="app.js"></script>
+    <script src="cloud.js?v=ios26-8"></script>
+    <script src="app.js?v=ios26-8"></script>
   </body>
 </html>
